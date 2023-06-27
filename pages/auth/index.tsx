@@ -1,3 +1,4 @@
+import AuthModal from "@/components/Modals/AuthModal";
 import Navbar from "@/components/Navbar/Navbar";
 import Image from "next/image";
 import React from "react";
@@ -17,6 +18,7 @@ const AuthPage: React.FC<AuthPageProps> = () => {
                         height={700}
                     />
                 </div>
+                <AuthModal />
             </div>
         </div>
     );
