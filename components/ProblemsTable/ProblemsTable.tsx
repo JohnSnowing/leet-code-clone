@@ -50,7 +50,7 @@ const ProblemsTable: React.FC<ProblemsTableProps> = () => {
                             <td className="px-6 py-4">
                                 {problem.videoId ? (
                                     <Link
-                                        href={problem.videoId}
+                                        href={`/problems/${problem.id}`}
                                         className="hover:text-blue-600 cursor-pointer"
                                         target="_blank"
                                     >
