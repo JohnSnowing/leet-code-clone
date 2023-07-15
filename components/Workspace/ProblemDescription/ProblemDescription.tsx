@@ -1,7 +1,10 @@
-import { auth } from "@/firebase/firebase";
-import { Problem } from "@/utils/types/problem";
+import CircleSkeleton from "@/components/Skeletons/CircleSkeleton";
+import RectangleSkeleton from "@/components/Skeletons/RectangleSkeleton";
+import { auth, firestore } from "@/firebase/firebase";
+import { DBProblem, Problem } from "@/utils/types/problem";
+import { doc, getDoc } from "firebase/firestore";
 import Image from "next/image";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useAuthState } from "react-firebase-hooks/auth";
 
 type ProblemDescriptionProps = {
@@ -15,6 +18,14 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
 }) => {
     const [user] = useAuthState(auth);
     const [updating, setUpdating] = useState(false);
+
+    const {
+        currentProblem,
+        loading,
+        problemDifficultyClass,
+        setCurrentProblem,
+    } = useGetCurrentProblem(problem.id);
+
     return (
         <div className="bg-dark-layer-1">
             <div className="flex h-11 w-full items-center pt-2 bg-dark-layer-2 text-white overflow-x-hidden">
@@ -35,14 +46,14 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
                                 {problem?.title}
                             </div>
                         </div>
-                        {/* {!loading && currentProblem && (
-							<div className='flex items-center mt-3'>
-								<div
-									className={`${problemDifficultyClass} inline-block rounded-[21px] bg-opacity-[.15] px-2.5 py-1 text-xs font-medium capitalize `}
-								>
-									{currentProblem.difficulty}
-								</div>
-								{(solved || _solved) && (
+                        {!loading && currentProblem && (
+                            <div className="flex items-center mt-3">
+                                <div
+                                    className={`${problemDifficultyClass} inline-block rounded-[21px] bg-opacity-[.15] px-2.5 py-1 text-xs font-medium capitalize `}
+                                >
+                                    {currentProblem.difficulty}
+                                </div>
+                                {/* {(solved || _solved) && (
 									<div className='rounded p-[3px] ml-4 text-lg transition-colors duration-200 text-green-s text-dark-green-s'>
 										<BsCheck2Circle />
 									</div>
@@ -74,19 +85,19 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
 									{starred && !updating && <AiFillStar className='text-dark-yellow' />}
 									{!starred && !updating && <TiStarOutline />}
 									{updating && <AiOutlineLoading3Quarters className='animate-spin' />}
-								</div>
-							</div>
-						)} */}
+								</div> */}
+                            </div>
+                        )}
 
-                        {/* {loading && (
-							<div className='mt-3 flex space-x-2'>
-								<RectangleSkeleton />
-								<CircleSkeleton />
-								<RectangleSkeleton />
-								<RectangleSkeleton />
-								<CircleSkeleton />
-							</div>
-						)} */}
+                        {loading && (
+                            <div className="mt-3 flex space-x-2">
+                                <RectangleSkeleton />
+                                <CircleSkeleton />
+                                <RectangleSkeleton />
+                                <RectangleSkeleton />
+                                <CircleSkeleton />
+                            </div>
+                        )}
 
                         {/* Problem Statement(paragraphs) */}
                         <div className="text-white text-sm">
@@ -156,3 +167,75 @@ const ProblemDescription: React.FC<ProblemDescriptionProps> = ({
     );
 };
 export default ProblemDescription;
+
+function useGetCurrentProblem(problemId: string) {
+    const [currentProblem, setCurrentProblem] = useState<DBProblem | null>(
+        null,
+    );
+    const [loading, setLoading] = useState(true);
+    const [problemDifficultyClass, setProblemDifficultyClass] = useState("");
+
+    useEffect(() => {
+        const getCurrentProblem = async () => {
+            setLoading(true);
+            const docRef = doc(firestore, "problems", problemId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const problem = docSnap.data();
+                setCurrentProblem({ id: docSnap.id, ...problem } as DBProblem);
+
+                setProblemDifficultyClass(
+                    problem.difficulty === "Easy"
+                        ? "bg-olive text-olive"
+                        : problem.difficulty === "Medium"
+                        ? "bg-dark-yellow text-dark-yellow"
+                        : " bg-dark-pink text-dark-pink",
+                );
+            }
+            setLoading(false);
+        };
+        getCurrentProblem();
+    }, [problemId]);
+
+    return {
+        currentProblem,
+        loading,
+        problemDifficultyClass,
+        setCurrentProblem,
+    };
+}
+
+function useGetUsersDataOnProblem(problemId: string) {
+    const [data, setData] = useState({
+        liked: false,
+        disliked: false,
+        starred: false,
+        solved: false,
+    });
+    const [user] = useAuthState(auth);
+
+    useEffect(() => {
+        const getUsersDataOnProblem = async () => {
+            const userRef = doc(firestore, "users", user!.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                const {
+                    solvedProblems,
+                    likedProblems,
+                    dislikedProblems,
+                    starredProblems,
+                } = data;
+                setData({
+                    liked: likedProblems.includes(problemId),
+                    disliked: dislikedProblems.includes(problemId),
+                    starred: starredProblems.includes(problemId),
+                    solved: starredProblems.includes(problemId),
+                });
+            }
+        };
+    }, [problemId, user]);
+
+    return { ...data, setData };
+}
