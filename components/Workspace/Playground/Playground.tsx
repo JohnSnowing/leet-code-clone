@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Split from "react-split";
 import PreferenceNav from "./PreferenceNav/PreferenceNav";
 import CodeMirror from "@uiw/react-codemirror";
@@ -12,12 +12,19 @@ import { auth, firestore } from "@/firebase/firebase";
 import { problems } from "@/utils/problems";
 import { useRouter } from "next/router";
 import { arrayUnion, doc, updateDoc } from "firebase/firestore";
+import useLocalStorage from "@/hooks/useLocalStorage";
 
 type PlaygroundProps = {
     problem: Problem;
     setSuccess: React.Dispatch<React.SetStateAction<boolean>>;
     setSolved: React.Dispatch<React.SetStateAction<boolean>>;
 };
+
+export interface ISettings {
+    fontSize: string;
+    settingsModalIsOpen: boolean;
+    dropDownIsOpen: boolean;
+}
 
 const Playground: React.FC<PlaygroundProps> = ({
     problem,
@@ -28,6 +35,14 @@ const Playground: React.FC<PlaygroundProps> = ({
     let [userCode, setUserCode] = useState(problem.starterCode);
 
     const [user] = useAuthState(auth);
+
+    const [fontSize, setFontSize] = useLocalStorage("lcc-fontSize", "16px");
+
+    const [settings, setSettings] = useState<ISettings>({
+        fontSize: fontSize,
+        settingsModalIsOpen: false,
+        dropDownIsOpen: false,
+    });
 
     const {
         query: { pid },
@@ -71,7 +86,7 @@ const Playground: React.FC<PlaygroundProps> = ({
             }
         } catch (error: any) {
             if (
-                error.message.startswith(
+                error.message.startsWith(
                     "AssertionError [ERR_ASSERTION]: Expected values to be strictly deep-equal:",
                 )
             ) {
@@ -95,9 +110,18 @@ const Playground: React.FC<PlaygroundProps> = ({
         localStorage.setItem(`code-${pid}`, JSON.stringify(value));
     };
 
+    useEffect(() => {
+        const code = localStorage.getItem(`code-${pid}`);
+        if (user) {
+            setUserCode(code ? JSON.parse(code) : problem.starterCode);
+        } else {
+            setUserCode(problem.starterCode);
+        }
+    }, [pid, user, problem.starterCode]);
+
     return (
         <div className="flex flex-col bg-dark-layer-1 h-full relative overflow-x-hidden">
-            <PreferenceNav />
+            <PreferenceNav settings={settings} setSettings={setSettings} />
             <Split
                 className="h-[calc(100vh-94px)]"
                 direction="vertical"
@@ -110,6 +134,7 @@ const Playground: React.FC<PlaygroundProps> = ({
                         theme={vscodeDark}
                         onChange={userCodeOnChange}
                         extensions={[javascript()]}
+                        style={{ fontSize: settings.fontSize }}
                     />
                 </div>
                 <div className="w-full px-5 overflow-auto">
